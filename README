@@ -1,0 +1,6 @@
+GraphyCalculator parses mathemtical expressions (equations / formulas) into an
+internal AST representation that can be evaluated with values for X and Y.
+
+It is used, for example, by http://www.graphycalc.com
+
+See the top of graphycalculator.js for the API and usage.
