@@ -6,6 +6,11 @@
 //   var tree = GraphyCalculator.parse(input_string);  // throws on error.
 //   var func = GraphyCalculator.create_evaluator(tree);
 //   func(x, y);  // throws on error.
+//
+// The generate_expression_string can be used to generate an expression string
+// from a tree.  This output is not actually parsable using parse(), because it
+// uses scientific notation.  It should be parsable by many language runtimes
+// however, including JavaScript.
 
 // Based on the principles of Top Down Operator Precedence:
 //   http://javascript.crockford.com/tdop/tdop.html
@@ -47,10 +52,11 @@ function create_value_token(val) {
   };
 }
 
-function create_function_token(func) {
+function create_function_token(func, name) {
   return {
     type: 'function',
     value: func,
+    func_name: name,
     led: function(left, s) {
       throw "Internal error: led called on a function.";
     },
@@ -73,7 +79,7 @@ function create_variable_token(name) {
   };
 }
 
-var function_table = {
+var kFunctionTable = {
   abs: Math.abs,
   acos: Math.acos,
   asin: Math.asin,
@@ -86,7 +92,7 @@ var function_table = {
   // random: Math.random,  Could be interesting?
   round: Math.round,
   sin: Math.sin,
-  sinc: function(x) { return x == 0 ? 1 : Math.sin(x) / x; },
+  sinc: function(x) { return x == 0 ? 1 : Math.sin(x) / x },
   sqrt: Math.sqrt,
   tan: Math.tan
 };
@@ -183,9 +189,9 @@ function lex_scan(exp_str) {
       if (match[0] == "x" || match[0] == "y") {
         tokens.push(create_variable_token(match[0]));
       } else {
-        var func = function_table[match[0]];
+        var func = kFunctionTable[match[0]];
         if (func !== undefined) {
-          tokens.push(create_function_token(func));
+          tokens.push(create_function_token(func, match[0]));
         } else {
           var con = constant_table[match[0]];
           if (con !== undefined) {
@@ -286,6 +292,46 @@ function evaluate_tree(tree, x, y) {
   }
 }
 
+function generate_expression_string_rec(tree) {
+  if (tree === undefined)  // Bad input, missing a child on an operator, etc.
+    throw "Error parsing input, probably invalid.";
+  
+  switch (tree.type) {
+    case 'value':
+      // TODO(deanm): The most universal representation we can use?
+      return tree.value.toExponential();
+    case 'variable':
+      return tree.value;
+    case 'function':
+      return tree.func_name + '(' + generate_expression_string_rec(tree.left) + ')';
+    case 'op_u+':
+      return '(+' + generate_expression_string_rec(tree.left) + ')';
+    case 'op_b+':
+      return '(' + generate_expression_string_rec(tree.left) + '+' +
+                   generate_expression_string_rec(tree.right) + ')';
+    case 'op_u-':
+      return '(-' + generate_expression_string_rec(tree.left) + ')';
+    case 'op_b-':
+      return '(' + generate_expression_string_rec(tree.left) + '-' +
+                   generate_expression_string_rec(tree.right) + ')';
+    case 'op_b*':
+      return '(' + generate_expression_string_rec(tree.left) + '*' +
+                   generate_expression_string_rec(tree.right) + ')';
+    case 'op_b/':
+      return '(' + generate_expression_string_rec(tree.left) + '/' +
+                   generate_expression_string_rec(tree.right) + ')';
+    case 'op_b^':
+      return 'pow(' + generate_expression_string_rec(tree.left) + ',' +
+                   generate_expression_string_rec(tree.right) + ')';
+    default:
+      throw "Internal error, unhandled node: " + tree.type + " " + tree.value;
+  }
+}
+
+function generate_expression_string(tree) {
+  return generate_expression_string_rec(tree);
+}
+
 function create_evaluator(tree) {
   return function(x, y) {
     return evaluate_tree(tree, x, y);
@@ -298,7 +344,8 @@ function parse(input) {
 
 return {
   parse: parse,
-  create_evaluator: create_evaluator
+  create_evaluator: create_evaluator,
+  generate_expression_string: generate_expression_string
 };
 
 })();  // End of GraphyCalculator namespace.
