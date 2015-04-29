@@ -349,3 +349,7 @@ return {
 };
 
 })();  // End of GraphyCalculator namespace.
+
+if (typeof(exports) == 'object') {
+  for (x in GraphyCalculator) exports[x] = GraphyCalculator[x];
+}
